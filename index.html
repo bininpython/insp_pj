@@ -13,7 +13,10 @@
   <script defer src="app.js"></script>
 </head>
 <body>
-  <div class="app-shell">
+  <section id="loginScreen" class="login-screen">
+    <div class="login-card"><div class="login-brand"><span class="brand-mark">IP</span><span><strong>Equipe Inspeção</strong><small>CONTROLE PJ</small></span></div><div class="login-symbol">▦</div><div class="eyebrow"><span class="eyebrow-line"></span>ACESSO DE GESTÃO</div><h1>Entre com o PIN<br />do administrador</h1><p>Use o mesmo PIN de administrador configurado no Petrus.</p><form id="loginForm"><label for="loginPin">PIN de 4 números</label><input id="loginPin" type="password" inputmode="numeric" autocomplete="current-password" maxlength="4" pattern="[0-9]{4}" required placeholder="••••" /><button class="button button-primary" type="submit" id="loginSubmit">Acessar equipe <span>→</span></button><small id="loginError" role="status"></small></form><div class="login-privacy">◉ Dados protegidos e sincronizados no Supabase do Petrus</div></div>
+  </section>
+  <div class="app-shell" id="appShell">
     <aside class="sidebar">
       <div class="brand"><div class="brand-mark">IP</div><div><strong>Equipe</strong><span>INSPEÇÃO · PJ</span></div></div>
       <div class="unit-chip"><span class="pulse"></span><div><small>UNIDADE</small><strong>Metalurgia · Insp/Lab</strong></div></div>
@@ -28,11 +31,11 @@
     </aside>
 
     <main class="main-content">
-      <header class="topbar"><div class="breadcrumbs"><span>Equipe PJ</span><b>/</b><strong id="breadcrumbPage">Visão geral</strong></div><div class="top-actions"><div class="today-pill"><span>◷</span><span id="currentDate"></span></div><button class="icon-button" id="helpButton" aria-label="Informações">?</button><span class="avatar">PJ</span></div></header>
+      <header class="topbar"><div class="breadcrumbs"><span>Equipe PJ</span><b>/</b><strong id="breadcrumbPage">Visão geral</strong></div><div class="top-actions"><span class="sync-status" id="syncStatus"><i></i>Sincronizado</span><div class="today-pill"><span>◷</span><span id="currentDate"></span></div><button class="icon-button" id="helpButton" aria-label="Informações">?</button><button class="logout-button" id="logoutButton">Sair ↗</button><span class="avatar">PJ</span></div></header>
 
       <section class="page active" id="page-overview">
         <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>PAINEL DE CONTROLE</div><h1>Equipe Inspeção</h1><p>Visão rápida da equipe, dos turnos e da distribuição de folgas.</p></div><div class="heading-actions"><button class="button button-secondary" id="importButton"><span>↑</span> Importar Excel</button><button class="button button-primary" id="addWorkerButton"><span>＋</span> Novo integrante</button><input type="file" id="excelInput" accept=".xlsx,.xls,.csv" hidden /></div></div>
-        <div class="import-banner" id="importBanner"><div class="import-symbol">↥</div><div><strong>Comece importando a planilha oficial</strong><p>Os nomes e matrículas serão lidos no seu navegador. A lista não é enviada ao GitHub.</p></div><button class="button button-light" id="importBannerButton">Selecionar planilha <span>→</span></button></div>
+        <div class="import-banner" id="importBanner"><div class="import-symbol">↥</div><div><strong>Comece importando a planilha oficial</strong><p>Os nomes e matrículas serão sincronizados com a base protegida. A lista não entra no GitHub.</p></div><button class="button button-light" id="importBannerButton">Selecionar planilha <span>→</span></button></div>
         <div class="metric-grid">
           <article class="metric-card metric-blue"><div class="metric-top"><span>INTEGRANTES</span><span class="metric-icon">♙</span></div><div class="metric-value" id="metricTotal">0</div><div class="metric-foot"><span class="metric-bullet"></span> Pessoas cadastradas</div></article>
           <article class="metric-card metric-teal"><div class="metric-top"><span>COM FOLGA DEFINIDA</span><span class="metric-icon">✓</span></div><div class="metric-value" id="metricAssigned">0</div><div class="metric-foot"><span class="metric-bullet"></span><span id="assignedCaption">0% da equipe</span></div></article>
@@ -44,13 +47,13 @@
           <section class="panel quick-panel"><div class="panel-heading"><div><h2>Ações rápidas</h2><p>Atalhos para a gestão diária</p></div></div><button class="quick-action" id="quickTeam"><span class="quick-icon quick-blue">♙</span><span><strong>Consultar equipe</strong><small>Buscar e editar integrantes</small></span><b>→</b></button><button class="quick-action" id="quickImport"><span class="quick-icon quick-teal">↥</span><span><strong>Atualizar pela planilha</strong><small>Importar nomes e matrículas</small></span><b>→</b></button><button class="quick-action" id="quickBalance"><span class="quick-icon quick-amber">✳</span><span><strong>Equilibrar grupos</strong><small>Distribuir quem está sem folga</small></span><b>→</b></button></section>
         </div>
         <section class="panel recent-panel"><div class="panel-heading"><div><h2>Equipe cadastrada</h2><p>Resumo dos integrantes e grupos de folga</p></div><button class="button button-secondary button-small" data-goto="team">Ver equipe completa <span>→</span></button></div><div class="table-wrap"><table><thead><tr><th>INTEGRANTE</th><th>MATRÍCULA</th><th>TURNO</th><th>FOLGA</th><th>STATUS</th><th></th></tr></thead><tbody id="overviewTable"></tbody></table><div class="empty-state" id="overviewEmpty"><div class="empty-icon">♙</div><strong>Nenhum integrante cadastrado ainda</strong><p>Importe a planilha para carregar os nomes e matrículas da equipe.</p></div></div></section>
-        <footer class="local-foot"><span>●</span> Os dados da equipe ficam salvos neste navegador. Exporte uma cópia de segurança em Gestão.</footer>
+        <footer class="local-foot"><span>●</span> Os cadastros são sincronizados com o Supabase Petrus. Exporte uma cópia de segurança em Gestão.</footer>
       </section>
 
       <section class="page" id="page-team">
         <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>CADASTRO E CONSULTA</div><h1>Equipe</h1><p>Consulte perfis, atualize turnos e defina o grupo de folga de cada pessoa.</p></div><div class="heading-actions"><button class="button button-secondary" id="exportCsvButton">↓ Exportar CSV</button><button class="button button-primary" id="teamAddButton">＋ Novo integrante</button></div></div>
         <section class="panel roster-panel"><div class="roster-toolbar"><label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="Buscar nome ou matrícula" /></label><select id="groupFilter" aria-label="Filtrar por folga"><option value="all">Todas as folgas</option><option value="1">Folga 1</option><option value="2">Folga 2</option><option value="3">Folga 3</option><option value="4">Folga 4</option><option value="none">Sem grupo</option></select><select id="shiftFilter" aria-label="Filtrar por turno"><option value="all">Todos os turnos</option><option>TN</option><option>TM</option><option>TT</option><option value="none">Sem turno</option></select><span class="result-count" id="resultCount">0 integrantes</span></div><div class="table-wrap"><table><thead><tr><th>INTEGRANTE</th><th>MATRÍCULA</th><th>TURNO</th><th>GRUPO DE FOLGA</th><th>FUNÇÃO</th><th>STATUS</th><th></th></tr></thead><tbody id="teamTable"></tbody></table><div class="empty-state" id="teamEmpty"><div class="empty-icon">⌕</div><strong>Nenhum resultado encontrado</strong><p>Ajuste a busca ou importe a lista da equipe.</p></div></div></section>
-        <footer class="local-foot"><span>●</span> Alterações são salvas automaticamente neste navegador.</footer>
+        <footer class="local-foot"><span>●</span> Alterações são sincronizadas com o Supabase; este navegador mantém uma cópia de consulta.</footer>
       </section>
 
       <section class="page" id="page-days-off">
@@ -63,7 +66,7 @@
       <section class="page" id="page-management">
         <div class="page-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span>ADMINISTRAÇÃO</div><h1>Gestão do sistema</h1><p>Importe a base, faça cópias de segurança e mantenha os dados organizados.</p></div></div>
         <div class="management-grid"><article class="panel management-card"><div class="manage-icon manage-blue">↥</div><h2>Importar planilha oficial</h2><p>Leia a aba <strong>Equipe 2026</strong> do arquivo Excel. Novos integrantes são adicionados e cadastros existentes são atualizados sem apagar turno ou grupo de folga definidos.</p><button class="button button-primary" id="manageImportButton">Selecionar Excel</button></article><article class="panel management-card"><div class="manage-icon manage-teal">↓</div><h2>Exportar cópia de segurança</h2><p>Baixe um arquivo JSON com os cadastros e a distribuição atual, para guardar ou restaurar os dados.</p><button class="button button-secondary" id="backupButton">Baixar backup JSON</button></article><article class="panel management-card"><div class="manage-icon manage-amber">⌫</div><h2>Limpar dados deste navegador</h2><p>Apague todos os integrantes cadastrados localmente. Essa ação não pode ser desfeita sem uma cópia de segurança.</p><button class="button button-danger" id="clearButton">Limpar cadastros</button></article></div>
-        <div class="privacy-card"><span>◉</span><div><strong>Privacidade dos dados</strong><p>O aplicativo funciona sem conta ou servidor. Os dados inseridos e importados ficam no armazenamento local do navegador e não são enviados ao repositório.</p></div></div>
+        <div class="privacy-card"><span>◉</span><div><strong>Privacidade dos dados</strong><p>A lista de funcionários fica em tabela protegida no Supabase do Petrus. A leitura e as alterações exigem PIN e sessão administrativa; nomes e matrículas não são incluídos no repositório público.</p></div></div>
       </section>
     </main>
   </div>
