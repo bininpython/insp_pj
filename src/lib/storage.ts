@@ -1,11 +1,16 @@
 import type { Worker } from '../types';
 
 const KEY = 'equipe-inspecao-pj-v2';
+const LEGACY_KEY = 'equipe-inspecao-pj-v1';
 
 export function loadWorkers(): Worker[] {
   try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(KEY) ?? '[]');
-    return Array.isArray(parsed) ? parsed as Worker[] : [];
+    const saved = localStorage.getItem(KEY);
+    const parsed: unknown = JSON.parse(saved ?? localStorage.getItem(LEGACY_KEY) ?? '[]');
+    const workers = Array.isArray(parsed) ? parsed as Worker[] : [];
+    if (!saved && workers.length) localStorage.setItem(KEY, JSON.stringify(workers));
+    localStorage.removeItem('equipe-inspecao-session-v1');
+    return workers;
   } catch {
     return [];
   }

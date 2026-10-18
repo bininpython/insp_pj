@@ -178,7 +178,7 @@ export default function App() {
           <div className="danger-panel"><div><strong>Limpar dados locais</strong><p>Remove todos os cadastros salvos neste navegador. Exporte um backup antes de continuar.</p></div><button className="button button-danger" onClick={() => { if (workers.length && window.confirm('Apagar todos os integrantes deste dispositivo? Exporte um backup antes.')) { updateWorkers([]); notify('Cadastros locais removidos.'); } }}>Limpar cadastros</button></div>
         </>}
 
-        <footer className="footer"><span>Equipe Inspeção <b>·</b> Gestão inteligente da operação</span><span><span className="footer-dot" /> Local e seguro</span></footer>
+        <footer className="footer"><span>Equipe Inspeção <b>·</b> Gestão inteligente da operação</span><span><span className="footer-dot" /> Local neste navegador</span></footer>
       </div>
     </main>
 
