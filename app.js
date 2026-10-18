@@ -1,7 +1,11 @@
 (() => {
   'use strict';
   const STORAGE_KEY = 'equipe-inspecao-pj-v1';
-  const state = { workers: loadWorkers(), activePage: 'overview' };
+  const SESSION_KEY = 'equipe-inspecao-session-v1';
+  const SUPABASE_URL = 'https://mnkbnxuucczslequsmnx.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_zeDVqy9uQgw_lj2ShQWWZw_yvlAJvlg';
+  const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/insp-pj-admin`;
+  const state = { workers: loadWorkers(), activePage: 'overview', session: localStorage.getItem(SESSION_KEY) || '', refreshTimer: null };
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -15,9 +19,41 @@
       return Array.isArray(parsed) ? parsed : [];
     } catch { return []; }
   }
-  function save() {
+  function cacheAndRender() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state.workers));
     render();
+  }
+  function setSyncStatus(status) {
+    const el=$('#syncStatus'); if(!el)return;
+    el.classList.toggle('pending',status==='pending'); el.classList.toggle('error',status==='error');
+    el.innerHTML=status==='pending'?'<i></i>Sincronizando':status==='error'?'<i></i>Falha na conexão':'<i></i>Sincronizado';
+  }
+  async function api(action,payload={}) {
+    const response=await fetch(FUNCTION_URL,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_PUBLISHABLE_KEY},body:JSON.stringify({action,token:state.session,...payload})});
+    const result=await response.json().catch(()=>({error:'Resposta inválida do servidor.'}));
+    if(!response.ok)throw new Error(result.error||`Falha de conexão (${response.status}).`);
+    return result;
+  }
+  async function save() {
+    cacheAndRender();
+    if(!state.session)return;
+    setSyncStatus('pending');
+    try { await api('staff.upsert',{workers:state.workers}); setSyncStatus('ok'); }
+    catch(error){setSyncStatus('error');showToast(`Não sincronizou: ${error.message}`);}
+  }
+  async function refreshFromServer(showMessage=false) {
+    if(!state.session||$('#workerDialog').open)return;
+    try {
+      const result=await api('staff.load');
+      state.workers=result.workers||[]; localStorage.setItem(STORAGE_KEY,JSON.stringify(state.workers)); render(); setSyncStatus('ok');
+      if(showMessage)showToast('Equipe atualizada do servidor.');
+    } catch(error){setSyncStatus('error');if(showMessage)showToast(`Falha ao atualizar: ${error.message}`);}
+  }
+  function enterApp() {
+    $('#loginScreen').classList.add('hidden'); $('#appShell').classList.add('authenticated');
+    render();
+    if(state.refreshTimer)clearInterval(state.refreshTimer);
+    state.refreshTimer=setInterval(()=>refreshFromServer(false),45000);
   }
   function sortedWorkers(workers = state.workers) {
     return [...workers].sort((a,b) => String(a.name).localeCompare(String(b.name),'pt-BR'));
@@ -128,7 +164,7 @@
     }
     const updated = {...prior,id,name:$('#workerName').value.trim().replace(/\s+/g,' '),registration,shift:$('#workerShift').value,group:$('#workerGroup').value,role:$('#workerRole').value.trim() || 'Inspetor',status:$('#workerStatus').value,notes:$('#workerNotes').value.trim(),updatedAt:new Date().toISOString()};
     if (prior.id) state.workers = state.workers.map(w=>w.id===id?updated:w); else state.workers.push(updated);
-    $('#workerDialog').close(); save(); showToast(prior.id ? 'Perfil atualizado.' : 'Integrante cadastrado.');
+    $('#workerDialog').close(); void save(); showToast(prior.id ? 'Perfil atualizado.' : 'Integrante cadastrado.');
   }
   function editById(id) {
     const worker = state.workers.find(w => w.id === id);
@@ -166,7 +202,7 @@
             state.workers.push({...person,id:crypto.randomUUID?crypto.randomUUID():`w-${Date.now()}-${Math.random()}`,shift:'',group:'',role:'Inspetor',status:'Ativo',notes:''}); added++;
           }
         }
-        save(); showToast(`Planilha importada: ${added} novos e ${updated} atualizados.`);
+        void save(); showToast(`Planilha importada: ${added} novos e ${updated} atualizados.`);
       } catch(error) { showToast(error.message || 'Não foi possível importar a planilha.'); }
       $('#excelInput').value='';
     };
@@ -185,7 +221,7 @@
       worker.group=String(group);
       worker.updatedAt=new Date().toISOString();
     }
-    save(); showToast(`${pending.length} integrante${pending.length===1?'':'s'} distribuído${pending.length===1?'':'s'} nos grupos menos ocupados.`);
+    void save(); showToast(`${pending.length} integrante${pending.length===1?'':'s'} distribuído${pending.length===1?'':'s'} nos grupos menos ocupados.`);
   }
   function exportCSV() {
     const rows=[['Nome','Matrícula','Turno','Folga','Função','Status','Equipe','Líder operacional','Observações'],...sortedWorkers().map(w=>[w.name,w.registration,w.shift,w.group?`Folga ${w.group}`:'',w.role,w.status,w.teamName,w.leader,w.notes])];
@@ -222,7 +258,8 @@
   $('#deleteWorkerButton').addEventListener('click',()=>{
     const id=$('#workerId').value, worker=state.workers.find(w=>w.id===id);
     if (!worker || !confirm(`Excluir o cadastro de ${worker.name}?`)) return;
-    state.workers=state.workers.filter(w=>w.id!==id); $('#workerDialog').close(); save(); showToast('Cadastro excluído.');
+    $('#deleteWorkerButton').disabled=true;
+    api('staff.delete',{id}).then(()=>{state.workers=state.workers.filter(w=>w.id!==id);$('#workerDialog').close();void save();showToast('Cadastro excluído.');}).catch(error=>showToast(`Não foi possível excluir: ${error.message}`)).finally(()=>$('#deleteWorkerButton').disabled=false);
   });
   document.addEventListener('click',event=>{const button=event.target.closest('[data-edit]'); if(button) editById(button.dataset.edit);});
   document.addEventListener('change',event=>{
@@ -235,9 +272,30 @@
   $('#backupButton').addEventListener('click',backup);
   $('#clearButton').addEventListener('click',()=>{
     if(!state.workers.length){showToast('Não há cadastros para limpar.');return;}
-    if(!confirm('Apagar todos os integrantes salvos neste navegador? Esta ação não pode ser desfeita sem um backup.'))return;
-    state.workers=[];save();showToast('Cadastros locais removidos.');
+    if(!confirm('Apagar todos os integrantes cadastrados no servidor? Esta ação não pode ser desfeita sem um backup.'))return;
+    api('staff.clear').then(()=>{state.workers=[];void save();showToast('Cadastros removidos do servidor.');}).catch(error=>showToast(`Não foi possível limpar: ${error.message}`));
   });
-  $('#helpButton').addEventListener('click',()=>alert('Importe a aba “Equipe 2026” do Excel. Depois, edite cada perfil para definir turno e grupo de folga. Os dados ficam salvos somente neste navegador.'));
-  setDate(); render();
+  $('#loginForm').addEventListener('submit',async event=>{
+    event.preventDefault(); const button=$('#loginSubmit'), message=$('#loginError'), pin=$('#loginPin').value.trim();
+    button.disabled=true; message.textContent='Validando PIN…';
+    try {
+      const result=await api('login',{pin}); state.session=result.token; localStorage.setItem(SESSION_KEY,state.session);
+      const roster=await api('staff.load'); state.workers=roster.workers||[]; localStorage.setItem(STORAGE_KEY,JSON.stringify(state.workers));
+      message.textContent=''; $('#loginPin').value=''; enterApp();
+    } catch(error){state.session='';localStorage.removeItem(SESSION_KEY);message.textContent=error.message;$('#loginPin').select();}
+    finally{button.disabled=false;}
+  });
+  $('#logoutButton').addEventListener('click',async()=>{
+    try{await api('logout');}catch{/* a sessão local ainda será encerrada */}
+    state.session='';localStorage.removeItem(SESSION_KEY);if(state.refreshTimer)clearInterval(state.refreshTimer);
+    $('#appShell').classList.remove('authenticated');$('#loginScreen').classList.remove('hidden');$('#loginError').textContent='';$('#loginPin').focus();
+  });
+  $('#helpButton').addEventListener('click',()=>alert('Importe a aba “Equipe 2026” do Excel. Depois, edite cada perfil para definir turno e grupo de folga. Os cadastros são sincronizados com o Supabase Petrus e também ficam em cache neste navegador.'));
+  async function initialize(){
+    setDate();
+    if(!state.session){$('#loginScreen').classList.remove('hidden');return;}
+    try {await api('session.check');const roster=await api('staff.load');state.workers=roster.workers||[];localStorage.setItem(STORAGE_KEY,JSON.stringify(state.workers));enterApp();}
+    catch {state.session='';localStorage.removeItem(SESSION_KEY);$('#loginScreen').classList.remove('hidden');}
+  }
+  void initialize();
 })();
